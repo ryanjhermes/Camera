@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+opencv-python>=4.9
+pillow>=10.0
+openai>=1.40
+python-dotenv>=1.0

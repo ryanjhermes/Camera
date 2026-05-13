@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Webcam Screen Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #161a22;
+        --panel-2: #1e232d;
+        --border: #2a3140;
+        --text: #e6e8ee;
+        --muted: #98a0b3;
+        --accent: #4f8cff;
+        --accent-2: #3a6fd8;
+        --user: #2b3447;
+        --assistant: #1e2a1f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      .app {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 880px) {
+        .app { grid-template-columns: 1fr; }
+      }
+      h1 {
+        grid-column: 1 / -1;
+        margin: 0 0 4px;
+        font-size: 22px;
+        font-weight: 600;
+      }
+      .sub {
+        grid-column: 1 / -1;
+        color: var(--muted);
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .preview {
+        background: #000;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        aspect-ratio: 16/9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .preview img { width: 100%; height: 100%; object-fit: contain; }
+      .preview .empty { color: var(--muted); font-size: 13px; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; }
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.12s ease;
+      }
+      button:hover:not(:disabled) { background: var(--accent-2); }
+      button.secondary {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      button.secondary:hover:not(:disabled) { background: var(--panel-2); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .chat {
+        min-height: 320px;
+        max-height: 60vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 4px;
+      }
+      .msg {
+        padding: 10px 12px;
+        border-radius: 8px;
+        line-height: 1.45;
+        font-size: 14px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .msg.user { background: var(--user); align-self: flex-end; max-width: 90%; }
+      .msg.assistant { background: var(--assistant); align-self: flex-start; max-width: 90%; }
+      .msg .role {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .ask {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .ask textarea {
+        flex: 1;
+        resize: none;
+        min-height: 44px;
+        max-height: 160px;
+        padding: 10px 12px;
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font: inherit;
+        font-size: 14px;
+      }
+      .ask textarea:focus { outline: 1px solid var(--accent); }
+      .status {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 16px;
+      }
+      .status.error { color: #ff6b6b; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>Webcam Screen Assistant</h1>
+      <div class="sub">
+        Point the webcam at a screen and click “Take Picture” — the snapshot
+        is sent to the model automatically. Type below to ask follow-ups; the
+        same picture stays attached so the model can keep examining it.
+      </div>
+
+      <section class="panel">
+        <div class="preview" id="preview">
+          <span class="empty">No snapshot yet — click “Take Picture”.</span>
+        </div>
+        <div class="row">
+          <button id="snapBtn">Take Picture</button>
+          <button id="resetBtn" class="secondary">Reset Conversation</button>
+        </div>
+        <div class="status" id="camStatus"></div>
+      </section>
+
+      <section class="panel">
+        <div class="chat" id="chat"></div>
+        <form class="ask" id="askForm">
+          <textarea
+            id="question"
+            placeholder="Ask something about the screen… (Enter to send, Shift+Enter for newline)"
+            autocomplete="off"
+          ></textarea>
+          <button id="askBtn" type="submit">Ask</button>
+        </form>
+        <div class="status" id="askStatus"></div>
+      </section>
+    </div>
+
+    <script>
+      const previewEl = document.getElementById("preview");
+      const chatEl = document.getElementById("chat");
+      const snapBtn = document.getElementById("snapBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const askBtn = document.getElementById("askBtn");
+      const askForm = document.getElementById("askForm");
+      const questionEl = document.getElementById("question");
+      const camStatusEl = document.getElementById("camStatus");
+      const askStatusEl = document.getElementById("askStatus");
+
+      let hasSnapshot = false;
+      const AUTO_PROMPT = "What's the answer?";
+
+      function setStatus(el, msg, isError = false) {
+        el.textContent = msg || "";
+        el.classList.toggle("error", !!isError);
+      }
+
+      async function loadHistory() {
+        try {
+          const resp = await fetch("/history");
+          if (!resp.ok) return;
+          const data = await resp.json();
+          renderHistory(data.history || []);
+        } catch (err) {
+          setStatus(askStatusEl, "Failed to load history: " + err.message, true);
+        }
+      }
+
+      function renderHistory(history) {
+        chatEl.innerHTML = "";
+        for (const turn of history) {
+          const div = document.createElement("div");
+          div.className = "msg " + turn.role;
+          const role = document.createElement("span");
+          role.className = "role";
+          role.textContent = turn.role === "user" ? "You" : "Assistant";
+          const body = document.createElement("span");
+          body.textContent = turn.content;
+          div.appendChild(role);
+          div.appendChild(body);
+          chatEl.appendChild(div);
+        }
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      async function takePicture() {
+        snapBtn.disabled = true;
+        askBtn.disabled = true;
+        setStatus(camStatusEl, "Capturing…");
+        setStatus(askStatusEl, "");
+        try {
+          const url = "/snapshot?t=" + Date.now();
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          const blob = await resp.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          previewEl.innerHTML = "";
+          const img = document.createElement("img");
+          img.src = objectUrl;
+          previewEl.appendChild(img);
+          hasSnapshot = true;
+          setStatus(camStatusEl, "Snapshot sent — waiting for answer…");
+          await ask(AUTO_PROMPT, { fromAutoCapture: true });
+          setStatus(camStatusEl, "Snapshot ready.");
+        } catch (err) {
+          setStatus(camStatusEl, "Camera error: " + err.message, true);
+        } finally {
+          snapBtn.disabled = false;
+          askBtn.disabled = false;
+        }
+      }
+
+      async function ask(question, opts = {}) {
+        askBtn.disabled = true;
+        questionEl.disabled = true;
+        setStatus(askStatusEl, hasSnapshot ? "Thinking…" : "Capturing and thinking…");
+        try {
+          const resp = await fetch("/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          if (!resp.ok) {
+            const detail = await resp.json().catch(() => ({}));
+            throw new Error(detail.detail || "HTTP " + resp.status);
+          }
+          const data = await resp.json();
+          renderHistory(data.history);
+          hasSnapshot = true;
+          setStatus(askStatusEl, "");
+          if (!opts.fromAutoCapture) questionEl.value = "";
+        } catch (err) {
+          setStatus(askStatusEl, "Error: " + err.message, true);
+        } finally {
+          askBtn.disabled = false;
+          questionEl.disabled = false;
+          if (!opts.fromAutoCapture) questionEl.focus();
+        }
+      }
+
+      async function reset() {
+        resetBtn.disabled = true;
+        try {
+          const resp = await fetch("/reset", { method: "POST" });
+          const data = await resp.json().catch(() => ({}));
+          renderHistory(data.history || []);
+          previewEl.innerHTML = '<span class="empty">No snapshot yet — click “Take Picture”.</span>';
+          hasSnapshot = false;
+          setStatus(camStatusEl, "Conversation cleared.");
+          setStatus(askStatusEl, "");
+        } catch (err) {
+          setStatus(camStatusEl, "Reset failed: " + err.message, true);
+        } finally {
+          resetBtn.disabled = false;
+        }
+      }
+
+      snapBtn.addEventListener("click", takePicture);
+      resetBtn.addEventListener("click", reset);
+
+      askForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const q = questionEl.value.trim();
+        if (!q) return;
+        ask(q);
+      });
+
+      questionEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          askForm.requestSubmit();
+        }
+      });
+
+      loadHistory();
+    </script>
+  </body>
+</html>
