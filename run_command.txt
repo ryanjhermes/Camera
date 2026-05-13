@@ -1,2 +1,10 @@
-cp .env.example .env
+Mac:
+
+[ ! -f .env ] && cp .env.example .env
 venv/bin/uvicorn main:app --reload
+
+Windows:
+
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\venv\Scripts\Activate.ps1
+uvicorn main:app --reload
