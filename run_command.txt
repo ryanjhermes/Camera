@@ -1,10 +1,41 @@
-Mac:
+Mac — local dev:
 
-[ ! -f .env ] && cp .env.example .env
-venv/bin/uvicorn main:app --reload
+  [ ! -f .env ] && cp .env.example .env
+  venv/bin/uvicorn main:app --reload
 
-Windows:
+Mac — Raspberry Pi:
 
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-.\venv\Scripts\Activate.ps1
-uvicorn main:app --reload
+  One-time autostart (on the Pi, after venv + .env exist):
+    cd ~/Camera
+    bash deploy/install-service.sh
+
+  Daily use (no Mac):
+    Power on Pi → plug EMEET → phone: http://ryanhermespi.local:8000
+
+  Manual start (optional, instead of systemd):
+    ssh ryanhermes@ryanhermespi.local
+    cd ~/Camera && source venv/bin/activate
+    uvicorn main:app --host 0.0.0.0 --port 8000
+
+  Update code from Mac:
+    rsync -av --exclude venv --exclude __pycache__ --exclude .env \
+      /Users/ryanhermes/Desktop/BIZTECH/Camera/ \
+      ryanhermes@ryanhermespi.local:~/Camera/
+    ssh ryanhermes@ryanhermespi.local
+    cd ~/Camera && source venv/bin/activate
+    pip install -r requirements.txt    # only if requirements changed
+    sudo systemctl restart camera
+
+  Service commands (on Pi):
+    sudo systemctl status camera
+    sudo systemctl restart camera
+    sudo journalctl -u camera -f
+
+  Shutdown Pi:
+    sudo shutdown -h now
+
+Windows — local dev:
+
+  if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+  .\venv\Scripts\Activate.ps1
+  uvicorn main:app --reload

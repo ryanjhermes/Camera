@@ -14,4 +14,5 @@ uvicorn main:app --reload
 
 Open http://127.0.0.1:8000
 
-More detail: [docs/architecture.md](docs/architecture.md)
+More detail: [docs/architecture.md](docs/architecture.md)  
+Pi autostart: [docs/raspberry-pi-autostart.md](docs/raspberry-pi-autostart.md)
