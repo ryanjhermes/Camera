@@ -1,10 +1,8 @@
 from pathlib import Path
 from threading import Lock
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
-
 from camera import Camera
 from llm import ask_with_image
 
