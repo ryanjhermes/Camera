@@ -24,11 +24,11 @@ Mac — Raspberry Pi:
     ssh ryanhermes@ryanhermespi.local
     cd ~/Camera && source venv/bin/activate
     pip install -r requirements.txt    # only if requirements changed
-    sudo systemctl restart camera
+    ssh -t ryanhermes@ryanhermespi.local "sudo systemctl restart camera"
 
   Service commands (on Pi):
     sudo systemctl status camera
-    sudo systemctl restart camera
+    ssh -t ryanhermes@ryanhermespi.local "sudo systemctl restart camera"
     sudo journalctl -u camera -f
 
   Shutdown Pi:

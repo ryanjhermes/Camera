@@ -28,7 +28,18 @@ def snapshot():
     with image_lock:
         image_bytes = jpeg
 
-    return Response(content=jpeg, media_type="image/jpeg")
+    return Response(
+        content=jpeg,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache", "Pragma": "no-cache"},
+    )
+
+@app.post("/reset")
+def reset():
+    global image_bytes
+    with image_lock:
+        image_bytes = None
+    return {"ok": True}
 
 @app.post("/ask")
 def ask(body: dict):
@@ -36,6 +47,9 @@ def ask(body: dict):
 
     with image_lock:
         snapshot = image_bytes
+
+    if not snapshot:
+        raise HTTPException(status_code=400, detail="No snapshot yet. Take a picture first.")
 
     answer = ask_with_image(snapshot, question)
 
