@@ -6,7 +6,7 @@ def _client():
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_with_image(image_bytes, question):
-    model = "gpt-4o"
+    model = os.getenv("OPENAI_MODEL", "gpt-4o")
     data_url = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode("ascii")}"
 
     messages = [
